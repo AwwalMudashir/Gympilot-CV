@@ -1,0 +1,11 @@
+services:
+  vision:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8000
+      GYMBRO_POSE_MODEL_PATH: /app/models/pose_landmarker_lite.task
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

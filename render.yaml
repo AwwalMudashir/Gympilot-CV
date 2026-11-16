@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: gymbro-vision
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: GYMBRO_POSE_MODEL_PATH
+        value: /app/models/pose_landmarker_lite.task

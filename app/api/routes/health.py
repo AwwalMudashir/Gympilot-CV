@@ -13,4 +13,4 @@ class HealthResponse(BaseModel):
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     """Return a dependency-free liveness response."""
-    return HealthResponse(status="ok", service="gympilot-vision", version="0.1.0")
+    return HealthResponse(status="ok", service="gymbro-vision", version="0.1.0")

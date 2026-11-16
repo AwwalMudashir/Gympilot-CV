@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    GYMBRO_POSE_MODEL_PATH=/app/models/pose_landmarker_lite.task
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl libgl1 libglib2.0-0 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN python -m pip install --upgrade pip \
+    && python -m pip install -r requirements.txt
+
+RUN mkdir -p /app/models \
+    && curl --fail --location --retry 3 \
+       "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task" \
+       --output /app/models/pose_landmarker_lite.task
+
+COPY app app
+
+RUN groupadd --system gymbro \
+    && useradd --system --gid gymbro --home-dir /app gymbro \
+    && chown -R gymbro:gymbro /app
+
+USER gymbro
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -1,10 +1,11 @@
 [project]
-name = "gympilot-vision-service"
+name = "gymbro-vision-service"
 version = "0.1.0"
-description = "FastAPI, OpenCV and MediaPipe service for GymPilot Vision"
+description = "FastAPI, OpenCV and MediaPipe service for GymBro"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi>=0.115,<1.0",
+    "python-multipart>=0.0.20,<1.0",
     "uvicorn>=0.30,<1.0",
     "opencv-python>=4.10,<4.12",
     "mediapipe>=0.10.20,<0.11",
