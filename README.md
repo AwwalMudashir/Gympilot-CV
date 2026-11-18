@@ -1,6 +1,6 @@
 # GymBro Vision Service
 
-Small Python service for pose-based exercise analysis. It includes the health endpoint, the prerecorded-video landmark spike and the Week 3 sampled-frame squat pipeline. Bicep-curl tracking remains a Week 4 item.
+Small Python service for pose-based exercise analysis. It includes the health endpoint, the prerecorded-video landmark spike, the Week 3 sampled-frame squat pipeline and the Week 4 bicep-curl pipeline.
 
 ## Prerequisites
 
@@ -100,3 +100,20 @@ The final session contract is compact JSON similar to:
   "score": 92
 }
 ```
+
+## Week 4 bicep-curl API
+
+The curl flow uses the same sampled-frame and session lifecycle as squats:
+
+```text
+POST   /api/v1/curl/sessions
+POST   /api/v1/curl/sessions/{sessionId}/frames
+POST   /api/v1/curl/sessions/{sessionId}/finish
+DELETE /api/v1/curl/sessions/{sessionId}
+```
+
+Keep one complete arm and the same-side hip visible. A repetition counts only
+after the elbow moves from full extension to a contracted position and returns
+to extension. Low-confidence landmarks request camera repositioning instead of
+changing the repetition state. The initial curl form flags are `ELBOW_DRIFT`
+and `INCOMPLETE_RANGE`.

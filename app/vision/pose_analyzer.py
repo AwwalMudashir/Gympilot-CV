@@ -5,6 +5,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
+from app.exercises.curl_tracker import CurlMeasurement
 from app.exercises.squat_tracker import SquatMeasurement
 from app.vision.geometry import calculate_angle
 
@@ -32,19 +33,20 @@ class PoseAnalyzer:
         frame_bytes: bytes,
         captured_at: float,
     ) -> SquatMeasurement | None:
-        encoded = np.frombuffer(frame_bytes, dtype=np.uint8)
-        frame = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
-        if frame is None:
-            raise InvalidFrameError("The uploaded frame is not a readable JPEG or PNG image")
-
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-        result = self._pose_landmarker().detect(image)
-        if not result.pose_landmarks:
+        landmarks = self._detect_landmarks(frame_bytes)
+        if landmarks is None:
             return None
 
-        landmarks = result.pose_landmarks[0]
-        side = self._most_visible_side(landmarks)
+        pose_landmark = mp.tasks.vision.PoseLandmark
+        side = self._most_visible_side(
+            landmarks,
+            (
+                (pose_landmark.LEFT_SHOULDER, pose_landmark.RIGHT_SHOULDER),
+                (pose_landmark.LEFT_HIP, pose_landmark.RIGHT_HIP),
+                (pose_landmark.LEFT_KNEE, pose_landmark.RIGHT_KNEE),
+                (pose_landmark.LEFT_ANKLE, pose_landmark.RIGHT_ANKLE),
+            ),
+        )
         if side is None:
             return None
 
@@ -54,6 +56,41 @@ class PoseAnalyzer:
         vertical_above_hip = (hip.x, hip.y - 1.0)
         forward_lean = calculate_angle(self._point(shoulder), self._point(hip), vertical_above_hip)
         return SquatMeasurement(knee_angle, hip_angle, forward_lean, captured_at)
+
+    def analyse_curl_frame(
+        self,
+        frame_bytes: bytes,
+        captured_at: float,
+    ) -> CurlMeasurement | None:
+        landmarks = self._detect_landmarks(frame_bytes)
+        if landmarks is None:
+            return None
+
+        pose_landmark = mp.tasks.vision.PoseLandmark
+        side = self._most_visible_side(
+            landmarks,
+            (
+                (pose_landmark.LEFT_SHOULDER, pose_landmark.RIGHT_SHOULDER),
+                (pose_landmark.LEFT_ELBOW, pose_landmark.RIGHT_ELBOW),
+                (pose_landmark.LEFT_WRIST, pose_landmark.RIGHT_WRIST),
+                (pose_landmark.LEFT_HIP, pose_landmark.RIGHT_HIP),
+            ),
+        )
+        if side is None:
+            return None
+
+        shoulder, elbow, wrist, hip = side
+        elbow_angle = calculate_angle(
+            self._point(shoulder),
+            self._point(elbow),
+            self._point(wrist),
+        )
+        upper_arm_angle = calculate_angle(
+            self._point(elbow),
+            self._point(shoulder),
+            self._point(hip),
+        )
+        return CurlMeasurement(elbow_angle, upper_arm_angle, captured_at)
 
     def close(self) -> None:
         if self._landmarker is not None:
@@ -80,24 +117,28 @@ class PoseAnalyzer:
         self._landmarker = mp.tasks.vision.PoseLandmarker.create_from_options(options)
         return self._landmarker
 
-    def _most_visible_side(self, landmarks):
-        pose_landmark = mp.tasks.vision.PoseLandmark
-        sides = (
-            (
-                landmarks[pose_landmark.LEFT_SHOULDER],
-                landmarks[pose_landmark.LEFT_HIP],
-                landmarks[pose_landmark.LEFT_KNEE],
-                landmarks[pose_landmark.LEFT_ANKLE],
-            ),
-            (
-                landmarks[pose_landmark.RIGHT_SHOULDER],
-                landmarks[pose_landmark.RIGHT_HIP],
-                landmarks[pose_landmark.RIGHT_KNEE],
-                landmarks[pose_landmark.RIGHT_ANKLE],
-            ),
+    def _detect_landmarks(self, frame_bytes: bytes):
+        encoded = np.frombuffer(frame_bytes, dtype=np.uint8)
+        frame = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+        if frame is None:
+            raise InvalidFrameError("The uploaded frame is not a readable JPEG or PNG image")
+
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+        result = self._pose_landmarker().detect(image)
+        if not result.pose_landmarks:
+            return None
+        return result.pose_landmarks[0]
+
+    def _most_visible_side(self, landmarks, landmark_pairs):
+        sides = tuple(
+            tuple(landmarks[pair[side_index]] for pair in landmark_pairs)
+            for side_index in range(2)
         )
         visible_sides = [
-            side for side in sides if min(landmark.visibility or 0.0 for landmark in side)
+            side
+            for side in sides
+            if min(landmark.visibility or 0.0 for landmark in side)
             >= self.minimum_visibility
         ]
         if not visible_sides:
