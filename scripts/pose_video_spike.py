@@ -1,4 +1,4 @@
-"""Week 2 MediaPipe spike: draw pose landmarks on a prerecorded video."""
+"""MediaPipe spike: draw pose landmarks on a prerecorded video."""
 
 from __future__ import annotations
 
